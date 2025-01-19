@@ -153,7 +153,7 @@ if create_questions:
         st.warning("Please enter a job description to generate technical questions.")
 
 # Display previous scoring sessions
-st.subheader("Previous Scoring Sessions")
+st.subheader("Saved Scoring Sessions")
 previous_sessions = c.execute('SELECT * FROM scoring_sessions ORDER BY created_at DESC LIMIT 10').fetchall()
 
 for session in previous_sessions:
