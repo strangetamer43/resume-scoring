@@ -6,6 +6,8 @@ from PyPDF2 import PdfReader
 import docx
 import sqlite3
 import google.generativeai as genai
+from datetime import datetime
+import pytz
 
 # Load environment variables from .env file
 load_dotenv()
@@ -77,7 +79,7 @@ def extract_candidate_info(content):
 
 def get_technical_questions(job_description):
     """Generates technical questions and brief answers based on the job description."""
-    prompt = f"Based on the following job description, share 10 technical questions to ask candidates. Also share brief answers to those questions. give the answer in the form of points so it is easy for me to understand.\nJob Description: {job_description}"
+    prompt = f"Based on the following job description, share 10 technical questions to ask candidates. Also share brief answers to those questions. Give the answer in the form of points so it is easy for me to understand.\nJob Description: {job_description}"
     model = genai.GenerativeModel('gemini-1.5-flash')
     response = model.generate_content([prompt])
     return response.text
@@ -134,9 +136,13 @@ if save_score and session_name:
             for result in st.session_state.results
         ])
         
-        # Save to database
-        c.execute('INSERT INTO scoring_sessions (session_name, num_resumes, results) VALUES (?, ?, ?)', 
-                  (session_name, len(st.session_state.results), results_str))
+        # Get current time in IST for created_at field
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        created_at_ist = datetime.now(ist_timezone).strftime('%Y-%m-%d %H:%M:%S')
+
+        # Save to database with current IST time
+        c.execute('INSERT INTO scoring_sessions (session_name, num_resumes, results, created_at) VALUES (?, ?, ?, ?)', 
+                  (session_name, len(st.session_state.results), results_str, created_at_ist))
         conn.commit()
         
         st.success("Scoring session saved successfully!")
@@ -153,7 +159,7 @@ if create_questions:
         st.warning("Please enter a job description to generate technical questions.")
 
 # Display previous scoring sessions
-st.subheader("Saved Scoring Sessions")
+st.subheader("Previous Scoring Sessions")
 previous_sessions = c.execute('SELECT * FROM scoring_sessions ORDER BY created_at DESC LIMIT 10').fetchall()
 
 for session in previous_sessions:
