@@ -40,7 +40,6 @@ Evaluate the resume content and provide scores out of 10 for each category. Do s
 Also share the previous experience in the resume. Share 3 questions you would ask particularly to that candidate."""
     response = model.generate_content([prompt, content])
     
-    # Extract overall score from response text using improved method
     overall_score = extract_overall_score(response.text)
     
     return {
@@ -50,16 +49,13 @@ Also share the previous experience in the resume. Share 3 questions you would as
 
 def extract_overall_score(response_text):
     """Extracts the overall score from the response text using regex and fallback methods."""
-    # Try regex first
     match = re.search(r'(?i)(overall\s*score[:\-\s]+|overall[:\-\s]+)(\d+(\.\d+)?)', response_text)
     if match:
-        return float(match.group(2))  # Extract and return the numeric part
+        return float(match.group(2))
     
-    # Fallback to keyword-based parsing if regex fails
     lines = response_text.splitlines()
     for line in lines:
         if "overall" in line.lower() and any(char.isdigit() for char in line):
-            # Attempt to extract number from line
             match = re.search(r'\d+(\.\d+)?', line)
             if match:
                 return float(match.group(0))
@@ -69,9 +65,7 @@ def extract_overall_score(response_text):
 def calculate_average_overall_score(results):
     """Calculates the average overall score for all resumes in a session."""
     scores = [result['overall_score'] for result in results if result['overall_score'] is not None]
-    if scores:
-        return sum(scores) / len(scores)
-    return 0
+    return sum(scores) / len(scores) if scores else 0
 
 def extract_text_from_pdf(uploaded_file):
     """Extracts text from a PDF file."""
@@ -94,11 +88,9 @@ def extract_candidate_info(content):
     
     lines = content.split('\n')
     
-    # Assuming the first line is the name (this can be adjusted based on formatting)
     if lines:
         name = lines[0].strip()
     
-    # Regex patterns for phone number and email
     phone_pattern = re.compile(r'\+?\d[\d -]{8,}\d')
     email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
     
@@ -133,7 +125,6 @@ submit_score = st.button("Score Resumes")
 create_questions = st.button("Create Technical Questions")
 save_score = st.button("Save Scoring")
 
-# Initialize session state for results if it doesn't exist
 if "results" not in st.session_state:
     st.session_state.results = []
 
@@ -156,13 +147,14 @@ if submit_score:
             "overall_score": response_data["overall_score"]
         })
     
-    # Store results in session state
     st.session_state.results = results
     
-    # Sort results by overall score in descending order before displaying
-    sorted_results = sorted(st.session_state.results, key=lambda x: x['overall_score'], reverse=True)
+    sorted_results = sorted(
+        st.session_state.results,
+        key=lambda x: x['overall_score'] if x['overall_score'] is not None else -1,
+        reverse=True
+    )
 
-    # Display results
     st.subheader("Results")
     for result in sorted_results:
         st.write(f"**Filename:** {result['filename']}")
@@ -172,38 +164,33 @@ if submit_score:
 
 if save_score and session_name:
     if len(st.session_state.results) > 0:
-        # Prepare results string and overall scores for saving
         results_str = "\n\n".join([
             f"**Filename:** {result['filename']}\n**Candidate Info:** {result['candidate_info']}\n{result['response']}\nOverall Score: {result['overall_score']}"
             for result in st.session_state.results
         ])
         
-        # Get current time in IST for created_at field
         ist_timezone = pytz.timezone('Asia/Kolkata')
         created_at_ist = datetime.now(ist_timezone).strftime('%Y-%m-%d %H:%M:%S')
 
-        # Calculate average overall score for this session
         average_overall_score = calculate_average_overall_score(st.session_state.results)
 
-        # Save to database including average overall score
         c.execute('INSERT INTO scoring_sessions (session_name, num_resumes, results, created_at, overall_score) VALUES (?, ?, ?, ?, ?)', 
                   (session_name, len(st.session_state.results), results_str, created_at_ist, average_overall_score))
         conn.commit()
         
         st.success("Scoring session saved successfully!")
-        st.session_state.results.clear()  # Clear results after saving
+        st.session_state.results.clear()
     else:
         st.warning("No scoring results available to save.")
 
 if create_questions:
-    if input_text.strip():  # Ensure job description is provided
+    if input_text.strip():
         technical_questions = get_technical_questions(input_text)
         st.subheader("Technical Questions")
         st.write(technical_questions)
     else:
         st.warning("Please enter a job description to generate technical questions.")
 
-# Display previous scoring sessions sorted by overall score (descending order)
 st.subheader("Saved Scoring Sessions")
 previous_sessions = c.execute('SELECT * FROM scoring_sessions ORDER BY overall_score DESC LIMIT 10').fetchall()
 
@@ -219,4 +206,3 @@ for session in previous_sessions:
             st.write("No results found.")
 
 conn.close()
-
