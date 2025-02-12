@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS scoring_sessions (
 # Define functions
 def get_gemini_response(job_description, content):
     """Generates a response from the Gemini model based on job description and resume content."""
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.0-flash')
     prompt = f"""
 You are an experienced Technical Human Resource Manager. Your task is to score the provided resumes against the job description provided below. 
 Job Description: {job_description}
